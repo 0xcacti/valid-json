@@ -5,9 +5,5 @@ import "forge-std/Test.sol";
 import "src/ValidJSON.sol";
 
 contract ValidJSONTest is Test {
-
-    function setUp() public {
-    }
-
+    function setUp() public {}
 }
-
