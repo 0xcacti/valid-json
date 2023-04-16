@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "./Constants.sol";
+import "src/Constants.sol";
 
 /// @title ValidJSON
 /// @author 0xcacti 

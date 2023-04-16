@@ -7,9 +7,11 @@ they are generating valid json.
 ### Use this at your own risk.  
 I have not audited the original implementation, I tested the code sparingly, and I wrote it quickly late at night. 
 Checking if JSON is valid is super gas intensive, so be sure to just use this in tests with foundry or something like that. 
-Very long JSON strings will likely cause stack overflow issues.  Welcome to solidity development. 
+Very long JSON strings will likely cause stack overflow issues.  Welcome to solidity development.  
+The main limitation is around json depth and less around length as far as I can tell. 
 
-NOTE: This code does not work with unicode strings.  
+NOTE: This code does not work with non-escaped unicode strings. Essentially, if you have to prepend unicode to the string `unicode'...'` 
+this will break.  
 
 ### Future Work
 If anyone thinks this is useful, I will put in much more effort and make this better. 
