@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-abstract contract ValidJSON {
+import "forge-std/Test.sol";
+
+abstract contract ValidJSON is Test {
     function isValidJSON(bytes memory json) public returns (bool) {
         uint256 position = 0;
         uint256 maxPosition = json.length;
 
         position = skipSpace(json, position, maxPosition);
-
-        if (json[position] == "{") {
+        if (json[position] == bytes1("{")) {
             (, bool valid) = isValidObject(json, position, maxPosition);
             return valid;
-        } else if (json[position] == "[") {
+        } else if (json[position] == bytes1("[")) {
             (, bool valid) = isValidArray(json, position, maxPosition);
             return valid;
         } else {
@@ -19,15 +20,14 @@ abstract contract ValidJSON {
         }
     }
 
-
     function isValidObject(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
-        if (json[position] != "{") {
+        if (json[position] != bytes1("{")) {
             return (position, false);
         }
 
         position = skipSpace(json, position + 1, maxPosition);
 
-        if (json[position] == "}") {
+        if (json[position] == bytes1("}")) {
             position += 1;
             return (position, true);
         }
@@ -41,12 +41,48 @@ abstract contract ValidJSON {
 
             position = skipSpace(json, position, maxPosition);
 
-            if (json[position] != ":") {
+            if (json[position] != bytes1(":")) {
                 return (position, false);
             }
 
             position = skipSpace(json, position + 1, maxPosition);
 
+            (position, locallyValid) = isValidValue(json, position, maxPosition);
+
+            if (!locallyValid) {
+                return (position, false);
+            }
+
+            position = skipSpace(json, position, maxPosition);
+
+            if (json[position] == bytes1(",")) {
+                position = skipSpace(json, position + 1, maxPosition);
+                continue;
+            } else if (json[position] == bytes1("}")) {
+                position += 1;
+                return (position, true);
+            } else {
+                return (position, false);
+            }
+        }
+        return (position, false);
+    }
+
+    function isValidArray(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
+        if (json[position] != bytes1("[")) {
+            return (position, false);
+        }
+
+        position = skipSpace(json, position + 1, maxPosition);
+
+        if (json[position] == bytes1("]")) {
+            position += 1;
+            return (position, true);
+        }
+
+        bool locallyValid = false;
+
+        while (position < maxPosition) {
             (position, locallyValid) = isValidValue(json, position, maxPosition);
             if (!locallyValid) {
                 return (position, false);
@@ -54,128 +90,156 @@ abstract contract ValidJSON {
 
             position = skipSpace(json, position, maxPosition);
 
-            if (json[position] == ",") {
+            if (json[position] == bytes1(",")) {
                 position = skipSpace(json, position + 1, maxPosition);
                 continue;
-            } else if (json[position] == "}") {
+            } else if (json[position] == bytes1("]")) {
                 position += 1;
                 return (position, true);
             } else {
                 return (position, false);
             }
         }
+        return (position, true);
     }
-
-    function isValidArray(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {}
 
     function isValidValue(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
         bytes1 currentByte = json[position];
         bool locallyValid = false;
-        if (currentByte == "{") {
+        if (currentByte == bytes1("{")) {
             (position, locallyValid) = isValidObject(json, position, maxPosition);
-            if (!locallyValid) {
-                return (position, false);
-            }
-        } else if (currentByte == "[") {
+        } else if (currentByte == bytes1("[")) {
             (position, locallyValid) = isValidArray(json, position, maxPosition);
-            if (!locallyValid) {
-                return (position, false);
-            }
-        } else if (currentByte == '"') {
+        } else if (currentByte == bytes1('"')) {
             (position, locallyValid) = isValidString(json, position, maxPosition);
-            if (!locallyValid) {
+        } else if (currentByte == bytes1("t")) {
+            if (position + 3 >= maxPosition) {
                 return (position, false);
             }
-        } else if (currentByte == "t") {
-            if (json[position + 1] == "r" && json[position + 2] == "u" && json[position + 3] == "e") { // TODO handle overflow 
+
+            if (
+                json[position + 1] == bytes1("r") && json[position + 2] == bytes1("u")
+                    && json[position + 3] == bytes1("e")
+            ) {
                 position = skipSpace(json, position + 4, maxPosition);
                 return (position, true);
             } else {
                 return (position, false);
             }
-        } else if (currentByte == "f") {
-            if (json[position + 1] == "a" && json[position + 2] == "l" && json[position + 3] == "s" && json[position + 4] == "e") {
+        } else if (currentByte == bytes1("f")) {
+            if (position + 4 >= maxPosition) {
+                return (position, false);
+            }
+            if (
+                json[position + 1] == bytes1("a") && json[position + 2] == bytes1("l")
+                    && json[position + 3] == bytes1("s") && json[position + 4] == bytes1("e")
+            ) {
                 position = skipSpace(json, position + 5, maxPosition);
                 return (position, true);
             } else {
                 return (position, false);
             }
-        } else if (currentByte == "n") {
-            if (json[position + 1] == "u" && json[position + 2] == "l" && json[position + 3] == "l") {
+        } else if (currentByte == bytes1("n")) {
+            if (
+                json[position + 1] == bytes1("u") && json[position + 2] == bytes1("l")
+                    && json[position + 3] == bytes1("l")
+            ) {
                 position = skipSpace(json, position + 4, maxPosition);
                 return (position, true);
             } else {
                 return (position, false);
             }
-        } else if (currentByte == "-" || (currentByte >= "0" && currentByte <= "9")) {
-            (position, locallyValid) =  isValidNumber(json, position, maxPosition);
+        } else if (currentByte == bytes1("-") || (currentByte >= bytes1("0") && currentByte <= bytes1("9"))) {
+            (position, locallyValid) = isValidNumber(json, position, maxPosition);
         } else {
             return (position, false);
         }
-
+        return (position, locallyValid);
     }
 
+    function isValidNumber(bytes memory json, uint256 position, uint256 maxPosition)
+        internal
+        pure
+        returns (uint256, bool)
+    {
+        bool locallyValid = false;
 
-    function isValidNumber(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
-        bytes1 currentByte = json[position];
-        if (currentByte == "-") {
-            position = skipSpace(json, position + 1, maxPosition);
-            currentByte = json[position];
+        if (json[position] == bytes1("-")) {
+            position++;
         }
 
-        if (currentByte == "0") {
-            position = skipSpace(json, position + 1, maxPosition);
-        } else if (currentByte >= "1" && currentByte <= "9") {
-            (position, ) = isValidDigit(json, position, maxPosition);
-        } else {
-            return (position, false);
-        }
-
-        currentByte = json[position];
-        if (currentByte == ".") {
-            (position, ) = isValidDigit(json, position + 1, maxPosition);
-        }
-
-        currentByte = json[position];
-        if (currentByte == "e" || currentByte == "E") {
-            position = skipSpace(json, position + 1, maxPosition);
-            currentByte = json[position];
-            if (currentByte == "+" || currentByte == "-") {
-                position = skipSpace(json, position + 1, maxPosition);
+        if (json[position] == bytes1("0")) {
+            position++;
+        } else if (json[position] >= bytes1("1") || json[position] <= bytes1("9")) {
+            position++;
+            if (json[position] >= bytes1("0") && json[position] <= bytes1("9")) {
+                (position, locallyValid) = isValidDigit(json, position, maxPosition);
+                if (!locallyValid) {
+                    return (position, false);
+                }
             }
-            (position, ) = isValidDigit(json, position, maxPosition);
-        }
-
-        return (position, true);
-        
-    }
-
-    function isValidDigit(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
-        bytes1 currentByte = json[position];
-        if (currentByte >= "0" && currentByte <= "9") {
-            position = skipSpace(json, position + 1, maxPosition);
-            return (position, true);
         } else {
             return (position, false);
         }
+
+        if (json[position] == bytes1(".")) {
+            (position, locallyValid) = isValidDigit(json, position + 1, maxPosition);
+            if (!locallyValid) {
+                return (position, false);
+            }
+        }
+
+        if (json[position] != bytes1("e") && json[position] != bytes1("E")) {
+            return (position, true);
+        }
+
+        position++;
+
+        if (json[position] == bytes1("+") || json[position] == bytes1("-")) {
+            position++;
+        }
+
+        (position, locallyValid) = isValidDigit(json, position, maxPosition);
+        return (position, locallyValid);
     }
 
-    function isValidEscape(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
+    function isValidDigit(bytes memory json, uint256 position, uint256 maxPosition)
+        internal
+        pure
+        returns (uint256, bool)
+    {
+        if (json[position] < bytes1("0") || json[position] > bytes1("9")) {
+            return (position, false);
+        }
+        position++;
+
+        while (json[position] >= bytes1("0") && json[position] <= bytes1("9")) {
+            position++;
+        }
+        return (position, true);
+    }
+
+    function isValidEscape(bytes memory json, uint256 position, uint256 maxPosition)
+        internal
+        pure
+        returns (uint256, bool)
+    {
         bytes1 currentByte = json[position];
         if (
-            currentByte == '"' || currentByte == "\\" || currentByte == "/" || currentByte == "b" || currentByte == "f"
-                || currentByte == "n" || currentByte == "r" || currentByte == "t"
+            currentByte == bytes1('"') || currentByte == bytes1("\\") || currentByte == bytes1("/")
+                || currentByte == bytes1("b") || currentByte == bytes1("f") || currentByte == bytes1("n")
+                || currentByte == bytes1("r") || currentByte == bytes1("t")
         ) {
             position = skipSpace(json, position + 1, maxPosition);
             return (position, true);
-        } else if (currentByte == "u") {
+        } else if (currentByte == bytes1("u")) {
             for (uint256 i = 1; i <= 4; i++) {
                 currentByte = json[position + i];
-                if (currentByte >= "0" && currentByte <= "9") {
+                if (currentByte >= bytes1("0") && currentByte <= bytes1("9")) {
                     continue;
-                } else if (currentByte >= "A" && currentByte <= "F") {
+                } else if (currentByte >= bytes1("a") && currentByte <= bytes1("f")) {
                     continue;
-                } else if (currentByte >= "a" && currentByte <= "f") {
+                } else if (currentByte >= bytes1("a") && currentByte <= bytes1("f")) {
                     continue;
                 } else {
                     return (position, false);
@@ -188,15 +252,19 @@ abstract contract ValidJSON {
         }
     }
 
-    function isValidString(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
-        if (json[position] != '"') {
+    function isValidString(bytes memory json, uint256 position, uint256 maxPosition)
+        internal
+        pure
+        returns (uint256, bool)
+    {
+        if (json[position] != bytes1('"')) {
             return (position, false);
         }
+        position++;
         bool escaped = false;
         bool locallyValid = false;
 
         while (position < maxPosition) {
-
             if (escaped) {
                 (position, locallyValid) = isValidEscape(json, position, maxPosition);
                 if (!locallyValid) {
@@ -204,12 +272,11 @@ abstract contract ValidJSON {
                 }
                 escaped = false;
             }
-
-            if (json[position] == '"') {
+            if (json[position] == bytes1('"')) {
                 return (position + 1, true);
-            } else if (json[position] == '\\') {
+            } else if (json[position] == bytes1("\\")) {
                 escaped = true;
-            } else if (json[position] < 0x20) { // I don't understand this line
+            } else if (json[position] < 0x20) {
                 return (position, false);
             }
 
@@ -218,9 +285,10 @@ abstract contract ValidJSON {
         return (position, false);
     }
 
-    function skipSpace(bytes memory data, uint256 position, uint256 maxPosition) public returns (uint256) { // does this handle new lines
+    function skipSpace(bytes memory data, uint256 position, uint256 maxPosition) public pure returns (uint256) {
+        // does this handle new lines
         while (position < maxPosition) {
-            if (data[position] != " ") {
+            if (data[position] != bytes1(" ")) {
                 return position;
             }
             position++;
