@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "forge-std/Test.sol";
-
-abstract contract ValidJSON is Test {
+/// @title ValidJSON
+/// @author 0xcacti 
+/// @notice This contract is used to validate JSON strings.  
+///         All code operates on bytes as string indexing does not work in Solidity for string memory. 
+/// @dev This contract only currently returns true or false. DO NOT use this to validate unicode strings. 
+///      Additionally be aware of high gas costs and potential stack overflow issues for very long JSON. 
+abstract contract ValidJSON {
+    /// @notice This function is used to validate a JSON string. 
+    /// @dev This is the entry point to the entire process.  
+    /// @param json The JSON string (as a bytes array) to validate.
+    /// @return bool Returns true if the JSON string is valid, false otherwise.
     function isValidJSON(bytes memory json) public returns (bool) {
         uint256 position = 0;
         uint256 maxPosition = json.length;
@@ -20,6 +28,13 @@ abstract contract ValidJSON is Test {
         }
     }
 
+    /// @notice This function validates if a json object is valid.
+    /// @dev JSON objects are surrounded by curly braces. 
+    /// @param json The JSON string (as a bytes array) to validate.
+    /// @param position The current position in the JSON string.
+    /// @param maxPosition The length of the JSON string.
+    /// @return uint256 The new position in the JSON string.
+    /// @return bool Returns true if the JSON object is valid, false otherwise.
     function isValidObject(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
         if (json[position] != bytes1("{")) {
             return (position, false);
@@ -68,6 +83,13 @@ abstract contract ValidJSON is Test {
         return (position, false);
     }
 
+    /// @notice This function validates if a json array is valid.
+    /// @dev JSON arrays are surrounded by square brackets.
+    /// @param json The JSON string (as a bytes array) to validate.
+    /// @param position The current position in the JSON string.
+    /// @param maxPosition The length of the JSON string.
+    /// @return uint256 The new position in the JSON string.
+    /// @return bool Returns true if the JSON array is valid, false otherwise.
     function isValidArray(bytes memory json, uint256 position, uint256 maxPosition) internal returns (uint256, bool) {
         if (json[position] != bytes1("[")) {
             return (position, false);
@@ -173,7 +195,7 @@ abstract contract ValidJSON is Test {
         } else if (json[position] >= bytes1("1") || json[position] <= bytes1("9")) {
             position++;
             if (json[position] >= bytes1("0") && json[position] <= bytes1("9")) {
-                (position, locallyValid) = isValidDigit(json, position, maxPosition);
+                (position, locallyValid) = isValidDigit(json, position);
                 if (!locallyValid) {
                     return (position, false);
                 }
@@ -183,7 +205,7 @@ abstract contract ValidJSON is Test {
         }
 
         if (json[position] == bytes1(".")) {
-            (position, locallyValid) = isValidDigit(json, position + 1, maxPosition);
+            (position, locallyValid) = isValidDigit(json, position + 1);
             if (!locallyValid) {
                 return (position, false);
             }
@@ -199,11 +221,17 @@ abstract contract ValidJSON is Test {
             position++;
         }
 
-        (position, locallyValid) = isValidDigit(json, position, maxPosition);
+        (position, locallyValid) = isValidDigit(json, position);
         return (position, locallyValid);
     }
 
-    function isValidDigit(bytes memory json, uint256 position, uint256 maxPosition)
+    /// @notice Checks if a digit is valid
+    /// @dev This function is used to check if a series of digits is valid.  It will check all values between the position and the next non-digit character.
+    /// @param json The JSON string
+    /// @param position The position of the character
+    /// @return uint256 The new position in the string
+    /// @return bool True if the series of digits is valid
+    function isValidDigit(bytes memory json, uint256 position)
         internal
         pure
         returns (uint256, bool)
@@ -219,6 +247,12 @@ abstract contract ValidJSON is Test {
         return (position, true);
     }
 
+    /// @notice Checks if an escaped character is valid
+    /// @param json The JSON string
+    /// @param position The position of the character
+    /// @param maxPosition The maximum position of the string
+    /// @return uint256 The new position in the string
+    /// @return bool True if the character is valid
     function isValidEscape(bytes memory json, uint256 position, uint256 maxPosition)
         internal
         pure
@@ -252,6 +286,13 @@ abstract contract ValidJSON is Test {
         }
     }
 
+    /// @notice This function validates if a json string is valid.
+    /// @dev JSON strings are surrounded by double quotes.
+    /// @param json The JSON string (as a bytes array) to validate.
+    /// @param position The current position in the JSON string.
+    /// @param maxPosition The length of the JSON string.
+    /// @return uint256 The new position in the JSON string.
+    /// @return bool Returns true if the JSON string is valid, false otherwise.
     function isValidString(bytes memory json, uint256 position, uint256 maxPosition)
         internal
         pure
@@ -285,6 +326,11 @@ abstract contract ValidJSON is Test {
         return (position, false);
     }
 
+    /// @notice This function skips all white space in between non white space characters 
+    /// @param data The JSON string (as a bytes array) to validate.
+    /// @param position The current position in the JSON string.
+    /// @param maxPosition The length of the JSON string.
+    /// @return uint256 The new position in the JSON string.
     function skipSpace(bytes memory data, uint256 position, uint256 maxPosition) public pure returns (uint256) {
         // does this handle new lines
         while (position < maxPosition) {
